@@ -1,5 +1,4 @@
-from ftp.client import client
-from ftp.server import server
-from ftp.sync import syncremote
+from ftp.client import FTPClient
+from ftp.server import FTPServer
 
-__all__ = ["client", "server", "syncremote"]
+__all__ = ["FTPClient", "FTPServer"]

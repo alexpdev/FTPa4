@@ -1,9 +1,0 @@
-{
-    "python.testing.pytestArgs": [
-        "tests"
-    ],
-    "python.testing.unittestEnabled": false,
-    "python.testing.nosetestsEnabled": false,
-    "python.testing.pytestEnabled": true,
-    "python.pythonPath": "c:\\Users\\asp\\Documents\\Code\\projects\\web\\aFTP4me\\env\\Scripts\\python.exe"
-}

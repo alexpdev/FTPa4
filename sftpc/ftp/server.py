@@ -16,7 +16,7 @@ fh.setFormatter(formatter)
 ch.setFormatter(formatter)
 BUFF_SIZE = 1024
 
-class Server:
+class FTPServer:
 
     def __init__(self,host=None,port=None):
         if not host:

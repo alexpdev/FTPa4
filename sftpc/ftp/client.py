@@ -4,7 +4,7 @@
 import os
 from ftplib import FTP
 
-class Client:
+class FTPClient:
     """
      FTP Client Implementation
     """
