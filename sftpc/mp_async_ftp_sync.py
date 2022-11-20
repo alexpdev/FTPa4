@@ -1,3 +1,4 @@
+import time
 import socket
 import asyncio
 import re
@@ -50,7 +51,7 @@ class AsyncFTP:
             line = line[:-2]
         elif line[-1:] in CRLF:
             line = line[:-1]
-        logging.info(line)
+        logger.debug(line)
         return line
 
     async def getmultiline(self):
@@ -90,7 +91,6 @@ class AsyncFTP:
         if '\r' in line or '\n' in line:
             raise Exception('an illegal newline character shouldn not be contained')
         line = line + CRLF
-        logging.info(line)
         self.sock.sendall(line.encode(self.encoding))
         return True
 
@@ -124,6 +124,7 @@ class AsyncFTP:
         bits = hbits + pbits
         cmd = 'PORT ' + ','.join(bits)
         void = await self.voidcmd(cmd)
+        logger.debug(void)
         return void
 
     async def makeport(self):
@@ -194,6 +195,8 @@ class AsyncFTP:
         return val[0]
 
     async def login(self, user = '', passwd = '', acct = ''):
+        self.user = user
+        self.passwd = passwd
         resp = await self.sendcmd('USER ' + user)
         if resp[0] == '3': resp = await self.sendcmd('PASS ' + passwd)
         if resp[0] != '2': raise Exception(resp)
@@ -209,11 +212,13 @@ class AsyncFTP:
             callback(data)
             await asyncio.sleep(0)
         resp = await self.voidresp()
+        logger.info(resp)
         return resp
 
     async def retrlines(self, cmd, callback):
         if callback is None: callback = print
         resp = await self.sendcmd('TYPE A')
+        logger.debug(resp)
         conn = await self.transfercmd(cmd)
         fp = conn.makefile('r', encoding=self.encoding)
         while True:
@@ -349,6 +354,7 @@ class AsyncFTP:
 
     async def quit(self):
         resp = await self.voidcmd('QUIT')
+        logger.info(resp)
         await self.close()
         return resp
 
@@ -363,19 +369,31 @@ class AsyncFTP:
             self.sock = None
             if sock is not None:
                 sock.close()
+        return
 
     async def listdir(self, path):
         data = await self.mlsd(path=path)
-        itemlist = [i[0] for i in data]
+        pathlist = [i[0] for i in data]
         data = dict(data)
-        return itemlist, data
+        return pathlist, data
 
     async def get(self, targ, dest):
+        client = AsyncFTP()
+        conn = await client.connect(self.host, self.port)
+        await client.login(self.user, self.passwd)
         cmd = "RETR " + targ
         dest = open(dest, 'ab')
-        await self.retrbinary(cmd, lambda x: dest.write(x))
+        await client.retrbinary(cmd, lambda x: dest.write(x))
+        await client.quit()
         return True
 
+    async def isdir(self, path):
+        pathlist = await self.mlsd(path)
+        return len(pathlist) > 1
+
+    async def isfile(self, path):
+        coro = await self.isdir(path)
+        return not coro
 
 
 class rx:
