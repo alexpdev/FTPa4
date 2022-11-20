@@ -4,16 +4,8 @@ import socket
 import time
 import struct
 import logging
-
 logger = logging.getLogger(__name__)
-fh = logging.FileHandler('./srvdbg.log')
-ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
-logger.setLevel(logging.DEBUG)
-fh.setLevel(logging.DEBUG)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-fh.setFormatter(formatter)
-ch.setFormatter(formatter)
+
 BUFF_SIZE = 1024
 
 class FTPServer:

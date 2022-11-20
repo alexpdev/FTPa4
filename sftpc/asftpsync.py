@@ -3,15 +3,7 @@ import asyncssh
 import os
 import random
 import time
-import dotenv
 
-dotenv.load_dotenv()
-host = os.environ["HN"]
-port = int(os.environ["PT"])
-un = os.environ["UN"]
-pw = os.environ["PW"]
-LOCAL = "/data/torrents/remote"
-REMOTE = "."
 
 class SFTP:
 
@@ -98,7 +90,7 @@ def metrics_output(then, size, path):
     filename = os.path.basename(path)
     print(f"<-Finished  {filename} : {size} || {amount} ->")
 
-async def run_client():
+async def run_client(host, port, un, pw, LOCAL, REMOTE):
     print(host, port, un, pw)
     async with asyncssh.connect(host=host, port=port, username=un, password=pw, known_hosts=None) as conn:
         print(conn)
@@ -106,7 +98,3 @@ async def run_client():
             client = SFTP(sftp)
             await client.traverse(LOCAL, REMOTE)
     return
-
-if __name__ == "__main__":
-    asyncio.run(run_client())
-    print()

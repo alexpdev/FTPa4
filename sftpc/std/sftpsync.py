@@ -7,39 +7,31 @@ import logging
 import random
 import time
 import paramiko
-import dotenv
 
 logging.basicConfig(level=logging.WARNING)
 
-dotenv.load_dotenv()
-host = os.environ["HN"]
-port = int(os.environ["PT"])
-LOCAL = "/data/torrents/remote"
-REMOTE = "/downloads/completed"
-
-
 class FastTransport(paramiko.Transport):
 
-    def __init__(self, sock):
+    def __init__(self, sock, username, password):
         super().__init__(sock)
         self.window_size = 2147483647
         self.packetizer.REKEY_BYTES = pow(2, 40)
         self.packetizer.REKEY_PACKETS = pow(2, 40)
         self.hostname, self.port = sock
-        self.username = os.environ["UN"]
-        self.password = os.environ["PW"]
+        self.username = username
+        self.password = password
 
     def open_connection(self):
         self.connect(username=self.username, password=self.password)
 
 class Connection:
 
-    def __init__(self, host, port):
+    def __init__(self, host, port, local, remote):
         self.transport = FastTransport((host, port))
         self.transport.open_connection()
         self.client  = paramiko.SFTPClient.from_transport(self.transport)
-        self.local = LOCAL
-        self.remote = REMOTE
+        self.local = local
+        self.remote = remote
         self.conn = None
 
     def __enter__(self):
@@ -166,14 +158,3 @@ def metrics_output(then, size, path):
         amount = f"{bytes_per_second / scales[bases[index - 1]]} {bases[index - 1]}/sec"
     filename = os.path.basename(path)
     print(f"<-Finished  {filename} : {size} || {amount} ->")
-
-
-
-
-
-
-
-
-if __name__ == "__main__":
-    connection = Connection(host,port)
-    connection.sync()

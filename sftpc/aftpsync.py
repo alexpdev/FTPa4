@@ -4,14 +4,6 @@ import aioftp
 import os
 import dotenv
 
-dotenv.load_dotenv()
-
-USER = os.environ['UN']
-PASS = os.environ['PW']
-PORT = os.environ['PT']
-HOST = os.environ['HN']
-LOCAL = "/data/torrents/remote"
-REMOTE = "apps/rutorrent.clifbox.appboxes.co/torrents/completed"
 
 class AFTP:
 
@@ -108,15 +100,12 @@ def metrics_output(then, size, path):
     print(f"<-Finished  {filename} : {size} || {amount} ->")
 
 
-async def asyncftp(host=HOST, port=PORT, login=USER, password=PASS):
+async def asyncftp(host, port, login, password, local, remote):
     async with aioftp.Client.context(host, port, login, password) as conn:
         client = AFTP(conn)
-        await client.traverse(LOCAL, REMOTE)
+        await client.traverse(local, remote)
     return
 
-def main():
-    asyncio.run(asyncftp())
+def main(host, port, login, password, local, remote):
+    asyncio.run(asyncftp(host, port, login, password, local, remote))
     print()
-
-
-main()
