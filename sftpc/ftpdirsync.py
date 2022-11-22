@@ -90,7 +90,8 @@ class FTPClient:
         self.af = self.sock.family
         self.file = self.sock.makefile('r', encoding=self.encoding)
         message = self.getresp()
-        logger.info(message)
+        logger.debug(message)
+        logger.info("Connection Success")
         return self.sock
 
     def getline(self):
@@ -134,10 +135,6 @@ class FTPClient:
             s = s[:5] + '*'*(i-5) + s[i:]
         return repr(s)
 
-    def putcmd(self, line):
-        value = self.putline(line)
-        return value
-
     def putline(self, line):
         if '\r' in line or '\n' in line:
             raise Exception('an illegal newline character shouldn not be contained')
@@ -162,13 +159,13 @@ class FTPClient:
         return resp
 
     def sendcmd(self, cmd):
-        self.putcmd(cmd)
+        self.putline(cmd)
         resp = self.getresp()
         return resp
 
     def voidcmd(self, cmd):
-        self.putcmd(cmd)
-        void = self.voidresp()
+        self.putline(cmd)
+        void = self.getresp()
         return void
 
     def sendport(self, host, port):
@@ -176,7 +173,7 @@ class FTPClient:
         pbits = [repr(port//256), repr(port%256)]
         bits = hbits + pbits
         cmd = 'PORT ' + ','.join(bits)
-        void = self.voidcmd(cmd)
+        void = self.sendcmd(cmd)
         logger.debug(void)
         return void
 
@@ -188,7 +185,7 @@ class FTPClient:
             resp = self.sendport(host, port)
         else:
             resp = self.sendeprt(host, port)
-        logging.info(resp)
+        logging.debug(resp)
         sock.settimeout(self.timeout)
         return sock
 
@@ -198,7 +195,7 @@ class FTPClient:
         if af == 0: raise Exception('unsupported address family')
         fields = ['', repr(af), host, repr(port), '']
         cmd = 'EPRT ' + '|'.join(fields)
-        resp = self.voidcmd(cmd)
+        resp = self.sendcmd(cmd)
         return resp
 
     def makepasv(self):
@@ -247,7 +244,7 @@ class FTPClient:
         val = self.ntransfercmd(cmd, rest)
         return val[0]
 
-    def login(self, user = '', passwd = '', acct = ''):
+    def login(self, user = '', passwd = ''):
         self.user = user
         self.passwd = passwd
         resp = self.sendcmd('USER ' + user)
@@ -256,7 +253,7 @@ class FTPClient:
         return resp
 
     def retrbinary(self, cmd, callback, blocksize=MAXSIZE, rest=None):
-        self.voidcmd('TYPE I')
+        self.sendcmd('TYPE I')
         conn = self.transfercmd(cmd, rest)
         total = 0
         while True:
@@ -265,8 +262,8 @@ class FTPClient:
                 break
             callback(data)
             total += len(data)
-        resp = self.voidresp()
-        logger.info(resp)
+        resp = self.getresp()
+        logger.debug(resp)
         return total
 
     def retrlines(self, cmd, callback):
@@ -286,37 +283,8 @@ class FTPClient:
             elif line[-1:] in CRLF:
                 line = line[:-1]
             callback(line)
-        val = self.voidresp()
+        val = self.getresp()
         return val
-
-    def storbinary(self, cmd, fp, blocksize=8192, callback=None, rest=None):
-        self.voidcmd('TYPE I')
-        with self.transfercmd(cmd, rest) as conn:
-            while 1:
-                buf = fp.read(blocksize)
-                if not buf:
-                    break
-                conn.sendall(buf)
-                if callback:
-                    callback(buf)
-        return self.voidresp()
-
-    def storlines(self, cmd, fp, callback=None):
-        self.voidcmd('TYPE A')
-        with self.transfercmd(cmd) as conn:
-            while 1:
-                buf = fp.readline(self.maxline + 1)
-                if len(buf) > self.maxline:
-                    raise Exception("got more than %d bytes" % self.maxline)
-                if not buf:
-                    break
-                if buf[-2:] != B_CRLF:
-                    if buf[-1] in B_CRLF: buf = buf[:-1]
-                    buf = buf + B_CRLF
-                conn.sendall(buf)
-                if callback:
-                    callback(buf)
-        return self.voidresp()
 
     def mlsd(self, path="", facts=[]):
         if facts:
@@ -340,15 +308,11 @@ class FTPClient:
 
     def cwd(self, dirname):
         if dirname == '..':
-            try:
-                return self.voidcmd('CDUP')
-            except Exception as msg:
-                if msg.args[0][:3] != '500':
-                    raise
+            return self.sendcmd('CDUP')
         elif dirname == '':
             dirname = '.'
         cmd = 'CWD ' + dirname
-        return self.voidcmd(cmd)
+        return self.sendcmd(cmd)
 
     def size(self, filename):
         resp = self.sendcmd('SIZE ' + filename)
@@ -357,31 +321,26 @@ class FTPClient:
             return int(s)
 
     def pwd(self):
-        resp = self.voidcmd('PWD')
+        resp = self.sendcmd('PWD')
         if not resp.startswith('257'):
             return ''
         return parse257(resp)
 
     def quit(self):
-        resp = self.voidcmd('QUIT')
-        logger.info(resp)
+        resp = self.sendcmd('QUIT')
+        logger.debug(resp)
         self.close()
         return resp
 
     def close(self):
-        try:
-            file = self.file
-            self.file = None
-            if file is not None:
-                file.close()
-        finally:
-            sock = self.sock
-            self.sock = None
-            if sock is not None:
-                sock.close()
-        return
+        try: self.file.close()
+        except: pass
+        try: self.sock.close()
+        except: pass
 
-    @Memo
+    def getsize(self, path):
+        return self.size(path)
+
     def listdir(self, path=None, instance=None):
         if not path:
             path = '.'
@@ -417,13 +376,6 @@ class FTPClient:
 
     def print_stats(self):
         self.stats.log_report()
-
-
-
-
-
-
-
 
 
 class rx:
