@@ -372,10 +372,8 @@ class AsyncFTP:
         return
 
     async def listdir(self, path):
-        data = await self.mlsd(path=path)
-        pathlist = [i[0] for i in data]
-        data = dict(data)
-        return pathlist, data
+        val = await self.nlst(path)
+        return val
 
     async def get(self, targ, dest):
         client = AsyncFTP()

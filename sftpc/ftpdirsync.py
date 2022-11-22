@@ -1,3 +1,4 @@
+import asyncio
 import time
 import socket
 import re
@@ -38,7 +39,7 @@ class Stats:
         self.last = path
         self.downloaded += 1
         self.total += size
-        logger.info("Complete: %s; %f %s/sec. Total: %d", path, val, denom, size)
+        print(f"Complete: {path}; {val} {denom}/sec. Total: {size}")
 
     def log_report(self):
         msg = f"Elapsed Time: {time.time() - self.start}; Processed: {self.processed}; Total: {self.total}; Downloaded: {self.downloaded}; Skipped: {self.skipped};"
@@ -46,7 +47,7 @@ class Stats:
         print(msg, end='\r')
 
 
-class FTPClient:
+class Client:
 
     host = ''
     port = PORT
@@ -253,6 +254,14 @@ class FTPClient:
         val = self.getresp()
         return val
 
+    def nlst(self, *args):
+        cmd = 'NLST'
+        for arg in args:
+            cmd = cmd + (' ' + arg)
+        files = []
+        self.retrlines(cmd, files.append)
+        return files
+
     def mlsd(self, path="", facts=[]):
         if facts:
             self.sendcmd("OPTS MLST " + ";".join(facts) + ";")
@@ -311,26 +320,22 @@ class FTPClient:
     def listdir(self, path=None):
         if not path:
             path = '.'
-        results = self.mlsd(path)
-        filelist = [i[0] for i in results]
-        return filelist, dict(results)
+        return self.nlst(path)
 
-    def isdir(self, path, instance=None):
-        instance = instance if instance else self
+    def isdir(self, path):
         if path in ['.', '..']:
             return True
-        results = self.listdir(path, instance=instance)
-        if results:
-            filelist, info = results
-            if len(filelist) == 1 and '..' not in filelist:
+        filelist = self.listdir(path)
+        print(filelist)
+        if len(filelist) == 1 and '..' not in filelist:
                 return False
         return True
 
     def isfile(self, path):
-        return not self.isdir(path, instance=self)
+        return not self.isdir(path)
 
     def get(self, remote, local):
-        client = FTPClient()
+        client = Client()
         client.connect(self.host, self.port)
         client.login(self.user, self.passwd)
         cmd = "RETR " + remote
@@ -343,7 +348,6 @@ class FTPClient:
 
     def print_stats(self):
         self.stats.log_report()
-
 
 class rx:
     _150_re = None
