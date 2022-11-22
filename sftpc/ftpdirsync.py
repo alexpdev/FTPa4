@@ -12,26 +12,6 @@ MAXSIZE = 2**24
 CRLF = '\r\n'
 B_CRLF = b'\r\n'
 
-
-class Memo:
-
-    def __init__(self, func):
-        self.func = func
-        self.cache = {}
-
-    def __call__(self, path, instance=None):
-        if instance is not None:
-            self.instance = instance
-        if path in self.cache:
-            return self.cache[path]
-        else:
-            func = self.func
-            instance = self.instance
-            results = func(instance, path)
-            self.cache[path] = results
-            return results
-
-
 class Stats:
 
     processed = 0
@@ -58,12 +38,12 @@ class Stats:
         self.last = path
         self.downloaded += 1
         self.total += size
-        if not self.downloaded % 10:
-            logger.info("Complete: %s; %f %s/sec. Total: %d", path, val, denom, size)
+        logger.info("Complete: %s; %f %s/sec. Total: %d", path, val, denom, size)
 
     def log_report(self):
-        msg = f"Elapsed Time: {time.time() - self.start}; Processed: {self.processed}; Total: {self.total}; Downloaded: {self.downloaded}; Skipped: {self.skipped};\r"
-        logger.info(msg)
+        msg = f"Elapsed Time: {time.time() - self.start}; Processed: {self.processed}; Total: {self.total}; Downloaded: {self.downloaded}; Skipped: {self.skipped};"
+        logger.debug(msg)
+        print(msg, end='\r')
 
 
 class FTPClient:
@@ -141,14 +121,6 @@ class FTPClient:
         line = line + CRLF
         self.sock.sendall(line.encode(self.encoding))
 
-
-    def voidresp(self):
-        resp = self.getresp()
-        if resp[:1] != '2':
-            logger.debug(resp)
-            raise Exception(resp)
-        return resp
-
     def abort(self):
         line = b'ABOR' + B_CRLF
         self.sock.sendall(line, OOB)
@@ -162,11 +134,6 @@ class FTPClient:
         self.putline(cmd)
         resp = self.getresp()
         return resp
-
-    def voidcmd(self, cmd):
-        self.putline(cmd)
-        void = self.getresp()
-        return void
 
     def sendport(self, host, port):
         hbits = host.split('.')
@@ -341,7 +308,7 @@ class FTPClient:
     def getsize(self, path):
         return self.size(path)
 
-    def listdir(self, path=None, instance=None):
+    def listdir(self, path=None):
         if not path:
             path = '.'
         results = self.mlsd(path)
