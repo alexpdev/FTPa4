@@ -1,8 +1,8 @@
-import asyncio
 import time
 import socket
 import re
 import logging
+from sftpc.stats import StatCollector
 
 logger = logging.getLogger(__name__)
 
@@ -12,39 +12,6 @@ MAXSIZE = 2**24
 
 CRLF = '\r\n'
 B_CRLF = b'\r\n'
-
-class Stats:
-
-    processed = 0
-    downloaded = 0
-    total = 0
-    skipped = 0
-    replaced = 0
-    start = time.time()
-    last = None
-
-    def calc_speed(self, path, size, starttime):
-        diff = time.time() - starttime
-        denom = "bytes"
-        tiers = {
-            "KiB": 2**20,
-            "MiB": 2**30,
-            "GiB": 2**40,
-        }
-        for k,v in tiers.items():
-            if size < v:
-                denom = k
-                break
-        val = size / diff
-        self.last = path
-        self.downloaded += 1
-        self.total += size
-        print(f"Complete: {path}; {val} {denom}/sec. Total: {size}")
-
-    def log_report(self):
-        msg = f"Elapsed Time: {time.time() - self.start}; Processed: {self.processed}; Total: {self.total}; Downloaded: {self.downloaded}; Skipped: {self.skipped};"
-        logger.debug(msg)
-        print(msg, end='\r')
 
 
 class Client:
@@ -59,7 +26,7 @@ class Client:
     trust_pasv_ipv4 = True
 
     def __init__(self, source_address=None, encoding='utf8', timeout=999):
-        self.stats = Stats()
+        self.stats = StatCollector()
         self.encoding = encoding
         self.source_address = source_address
         self.timeout = timeout
@@ -72,7 +39,6 @@ class Client:
         self.file = self.sock.makefile('r', encoding=self.encoding)
         message = self.getresp()
         logger.debug(message)
-        logger.info("Connection Success")
         return self.sock
 
     def getline(self):
@@ -326,7 +292,6 @@ class Client:
         if path in ['.', '..']:
             return True
         filelist = self.listdir(path)
-        print(filelist)
         if len(filelist) == 1 and '..' not in filelist:
                 return False
         return True
