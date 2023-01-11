@@ -27,6 +27,7 @@ class Traverse(Thread):
         self.client.stats.processed += 1
         self.client.print_stats()
         lst = self.client.listdir(remote)
+        print(lst)
         if len(lst) == 1:
             size = self.client.getsize(remote)
             if os.path.exists(local):
