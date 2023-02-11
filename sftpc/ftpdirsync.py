@@ -1,7 +1,34 @@
+import os
 import time
 import socket
 import re
 import logging
+
+
+class PathIO:
+    def __init__(self, name, parent, **kwargs):
+        self.name = name
+        self.parent = parent
+        self.args = kwargs
+        self.path = os.path.join(parent, name).replace('\\','/')
+
+    def isdir(self):
+        if self.args['type'] == 'file':
+            return False
+        return True
+
+    def isfile(self):
+        return not self.isdir()
+
+    def get_size(self):
+        if self.isfile():
+            return self.args['size']
+        else:
+            return self.args['sizd']
+
+    def __repr__(self):
+        return f'<PathIO {self.name};{self.args["type"]}>'
+
 
 class StatCollector:
 
@@ -34,25 +61,25 @@ class StatCollector:
         for factor, suffix in abbrevs:
             if size >= factor:
                 break
-        return suffix
+        return factor, suffix
 
     def humanize(self, size, starttime):
         interval = time.time() - starttime
         num = size / interval
-        suffix = self.byte_suffix(num)
-        return "{0:.2f} {1}/s".format(num, suffix)
+        factor, suffix = self.byte_suffix(num)
+        return "{0:.2f} {1}/s".format(num / factor, suffix)
 
     def calc_speed(self, path, size, starttime):
         speed = self.humanize(size, starttime)
-        self.last = path
+        self.last = path.name
         self.downloaded += 1
         self.total += size
         print(f"Complete: {path}; Size: {size}; Rate {speed}")
 
     def log_report(self):
-        msg = f"Elapsed Time: {time.time() - self.start}; Processed: {self.processed}; Total: {self.total}; Downloaded: {self.downloaded}; Skipped: {self.skipped};"
+        msg = f"Elapsed Time: {time.time() - self.start} seconds; Processed: {self.processed}; Total: {self.total}; Downloaded: {self.downloaded}; Skipped: {self.skipped};"
         logger.debug(msg)
-        print(msg, end='\r')
+        print(msg, end='')
 
     def show_end(self):
         span = time.time() - self.start
@@ -309,7 +336,8 @@ class Client:
             for fact in facts_found[:-1].split(";"):
                 key, _, value = fact.partition("=")
                 entry[key.lower()] = value
-            ref.append((name, entry))
+            path_entry = PathIO(name=name, parent=path, **entry)
+            ref.append(path_entry)
         return ref
 
     def cwd(self, dirname):
@@ -347,18 +375,15 @@ class Client:
     def getsize(self, path):
         return self.size(path)
 
-    def listdir(self, path=None):
-        if not path:
-            path = '.'
-        return self.nlst(path)
+    def listdir(self, path="."):
+        if isinstance(path, str):
+            return self.mlsd(path)
+        return self.mlsd(path.path)
 
     def isdir(self, path):
-        if path in ['.', '..']:
+        if path.isdir():
             return True
-        filelist = self.listdir(path)
-        if len(filelist) == 1 and '..' not in filelist:
-                return False
-        return True
+        return False
 
     def isfile(self, path):
         return not self.isdir(path)
@@ -367,7 +392,7 @@ class Client:
         client = Client()
         client.connect(self.host, self.port)
         client.login(self.user, self.passwd)
-        cmd = "RETR " + remote
+        cmd = "RETR " + remote.path
         with open(local, 'ab+') as fd:
             callback = lambda x: fd.write(x)
             then = time.time()

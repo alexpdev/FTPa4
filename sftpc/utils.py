@@ -25,11 +25,10 @@ class Traverse(Thread):
 
     def traverse(self, local, remote):
         self.client.stats.processed += 1
-        self.client.print_stats()
         lst = self.client.listdir(remote)
-        print(lst)
-        if len(lst) == 1:
-            size = self.client.getsize(remote)
+        if len(lst) == 1 and lst[0].isfile():
+            remote = lst[0]
+            size = remote.get_size()
             if os.path.exists(local):
                 if os.path.getsize(local) >= int(size):
                     self.client.stats.skipped += 1
@@ -37,17 +36,20 @@ class Traverse(Thread):
                         logger.info("Skipping: %s" % remote)
                     return
                 else:
-                    os.remove(local)
+                    if os.path.isfile(local):
+                        os.remove(local)
+                    else:
+                        os.rmdir(local)
                     self.client.stats.replaced += 1
             self.queue.put((local, remote))
         else:
             if not os.path.exists(local):
                 os.mkdir(local)
             for path in lst:
-                if path in ['.', '..']:
+                if path.name in ['.', '..']:
                     continue
-                remote1 = os.path.join(remote, path).replace('\\','/')
-                local1 = os.path.join(local, path).replace('\\','/')
+                remote1 = path.path
+                local1 = os.path.join(local, path.name).replace('\\','/')
                 self.traverse(local1, remote1)
 
     def run(self):
@@ -68,8 +70,6 @@ class SyncDir:
         self.walker.run()
 
     def run(self):
-        print(self.fifo.empty())
-        print(self.walker.is_alive())
         while not self.fifo.empty() or self.walker.is_alive():
             try:
                 local, remote = self.fifo.get(timeout=5)
@@ -77,4 +77,6 @@ class SyncDir:
                 self.client.get(remote, local)
                 self.fifo.task_done()
             except:
+                print("Something went wrong")
                 continue
+        print("Empty Queue")
